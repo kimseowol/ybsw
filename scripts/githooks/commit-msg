@@ -1,0 +1,63 @@
+#!/bin/sh
+# PRD 커밋 게이트: 게임 코드 또는 시각·설정·씬 에셋 변경에는 docs/prd 갱신이 동반되어야 한다.
+# 스테이징된 Assets/Scripts의 .cs 파일은 주 소유 PRD 태그를 정확히 1개 가져야 한다.
+# 통과 조건: (1) 게임 변경 없음 (2) 커밋 메시지에 [prd-skip] 사유
+#           (3) C# 태그 규약 충족 + docs/prd/*.md 함께 스테이징
+msg_file="$1"
+
+staged=$(git diff --cached --name-only --diff-filter=d)
+cs_files=$(printf '%s\n' "$staged" | grep '^Assets/Scripts/.*\.cs$')
+asset_files=$(printf '%s\n' "$staged" | grep -E '^Assets/(Art|Settings|Scenes)/')
+[ -z "$cs_files" ] && [ -z "$asset_files" ] && exit 0
+
+grep -q '\[prd-skip\]' "$msg_file" && exit 0
+
+# C# 태그 규약: 파일당 // PRD-### 태그 1개 (주 소유 PRD)
+tag_violations=""
+for f in $cs_files; do
+  count=$(head -3 "$f" 2>/dev/null | grep -o 'PRD-[0-9]*' | sort -u | wc -l)
+  if [ "$count" -eq 0 ]; then
+    tag_violations="$tag_violations  $f  ->  태그 없음\n"
+  elif [ "$count" -gt 1 ]; then
+    tag_violations="$tag_violations  $f  ->  태그 ${count}개 (1개만 허용)\n"
+  fi
+done
+
+if [ -n "$tag_violations" ]; then
+  {
+    echo "[PRD 게이트] 커밋 차단: PRD 태그 규약 위반."
+    echo ""
+    printf '%b' "$tag_violations"
+    echo ""
+    echo "파일 상단에 // PRD-### 태그를 정확히 1개 붙인다 (주 소유 PRD)."
+    echo "- 태그 없음: 구현이 실현하는 기존 의도의 주 소유 PRD를 태그한다. 기존 PRD로 설명할 수 없는 독립 why가 있을 때만 생성 절차로 간다."
+    echo "- 태그 여러 개: 태그는 주 소유 PRD 하나만 둔다. 호출자가 여러 개라는 이유로 독립 PRD를 만들지 않는다."
+    echo "내부 구조만 바뀌고 외부 동작이 같으면 커밋 메시지에 \"[prd-skip] 사유\"를 포함한다."
+    echo "git commit --no-verify 우회는 금지 (AGENTS.md)."
+  } >&2
+  exit 1
+fi
+
+prd_files=$(printf '%s\n' "$staged" | grep '^docs/prd/.*\.md$')
+[ -n "$prd_files" ] && exit 0
+
+{
+  echo "[PRD 게이트] 커밋 차단: 게임 코드 또는 시각·설정·씬 에셋이 변경됐지만 docs/prd 문서가 함께 변경되지 않았습니다."
+  echo ""
+  echo "다음 중 하나를 수행한 뒤 다시 커밋하세요:"
+  echo "1. 기능 의도·경계 또는 외부 동작이 바뀐 변경이면: 파일 상단 // PRD-### 태그의 PRD를 열어 '결정 기록'에"
+  echo "   이번 변경의 결정과 이유를 추가하고 함께 스테이징한다. (절차: docs/workflow/prd.md)"
+  echo "2. 외부 동작이 같은 내부 리팩토링·주석·포맷이면: PRD를 갱신하지 말고 커밋 메시지에 \"[prd-skip] 사유\"를 포함한다."
+  echo "git commit --no-verify 우회는 금지 (AGENTS.md)."
+  echo ""
+  echo "변경된 코드 파일과 PRD 태그:"
+  for f in $cs_files; do
+    tag=$(head -3 "$f" 2>/dev/null | grep -o 'PRD-[0-9]*' | head -1)
+    echo "  $f  ->  ${tag:-태그 없음}"
+  done
+  if [ -n "$asset_files" ]; then
+    echo "변경된 시각·설정·씬 에셋:"
+    printf '%s\n' "$asset_files" | sed 's/^/  /'
+  fi
+} >&2
+exit 1

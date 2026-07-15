@@ -1,0 +1,29 @@
+# 프로젝트 Codex 기본값 (신뢰 승인된 프로젝트에서만 적용됨).
+# Windows elevated 샌드박스는 별도 OS 사용자로 명령을 실행해 git이 dubious ownership으로 전부 실패한다.
+[windows]
+sandbox = "unelevated"
+
+[mcp_servers.unityMCP]
+url = "http://127.0.0.1:8081/mcp"
+
+[mcp_servers.unityMCP.tools.run_tests]
+approval_mode = "approve"
+
+[mcp_servers.unityMCP.tools.manage_scene]
+approval_mode = "approve"
+
+[mcp_servers.unityMCP.tools.manage_editor]
+approval_mode = "approve"
+
+[mcp_servers.unityMCP.tools.execute_code]
+approval_mode = "approve"
+
+[mcp_servers.unityMCP.tools.batch_execute]
+approval_mode = "approve"
+
+[mcp_servers.unityMCP.tools.manage_camera]
+approval_mode = "approve"
+
+# http 전송 MCP 클라이언트 기능 (unityMCP 연결에 필요)
+[features]
+rmcp_client = true

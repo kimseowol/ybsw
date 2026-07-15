@@ -1,0 +1,13 @@
+#!/bin/sh
+# push 전 PRD 기계 검사. 위반이 있으면 push를 막는다.
+# 의미 수준 드리프트는 여기서 못 잡는다 — 큰 병합 후에는 동기화 검사(docs/workflow/prd.md 3절)를 돌린다.
+repo_root=$(git rev-parse --show-toplevel)
+pwsh -NoProfile -File "$repo_root/scripts/check-prd.ps1"
+if [ $? -ne 0 ]; then
+  {
+    echo ""
+    echo "[PRD 게이트] push 차단: 위 위반을 해소한 뒤 다시 push 하세요. (git push --no-verify 우회 금지)"
+  } >&2
+  exit 1
+fi
+exit 0
